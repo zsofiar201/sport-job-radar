@@ -26,6 +26,18 @@ CLUBS={
 }
 EXCLUDE=re.compile(r'\b(physiotherap\w*|physiothérap\w*|medical|médecin|nurse|doctor|entrenador\w*|entraîneur\w*|head coach|assistant coach|personal trainer|nutritionist|fisioterap\w*)\b',re.I)
 VACANCY=re.compile(r'\b(intern\w*|trainee\w*|jobs?|hiring|vacanc\w*|careers?|recruit\w*|assistant|prácticas|becari\w*|empleo|trabajo|stage|stagiaire|recrutement|emploi|stellenangebot|praktikum|mitarbeiter|marketing|operations|sponsorship|partnership)\b',re.I)
+# Strict job-title filter: a news article mentioning jobs is not a vacancy.
+JOB_TITLE=re.compile(r"\b(internship|intern|trainee|vacancy|vacancies|we.re hiring|now hiring|apply now|job opening|job opportunity|career opportunity|prácticas|becario|becaria|oferta de empleo|oferta de trabajo|se busca|stage|stagiaire|offre d.emploi|offre de stage|recrute|recrutement|stellenangebot|praktikum|werkstudent|jobangebot|job opening)\b",re.I)
+ROLE_TITLE=re.compile(r"\b(marketing assistant|marketing intern|marketing trainee|operations assistant|operations intern|communications assistant|communications intern|sponsorship assistant|partnerships assistant|project assistant|event assistant|commercial assistant|marketingassistent|marketing assistent|assistant marketing|assistant communication|assistante marketing|asistente de marketing)\b",re.I)
+NEWS_NOISE=re.compile(r"\b(cuts? \d+%|layoffs?|job losses|jobs disappearing|workforce reduction|how .* supports|sponsorship supports|betting on AI|unemployment rate|government to cut|government cuts|job market|jobs report)\b",re.I)
+
+def likely_vacancy(title, summary, club):
+    # Require an employment phrase in the headline itself. Club role names may
+    # lack 'sport' but still qualify if the club was explicitly searched.
+    if NEWS_NOISE.search(title): return False
+    if JOB_TITLE.search(title): return True
+    return bool(club and ROLE_TITLE.search(title))
+
 CITY_HINTS={'München':'München','Munich':'München','Barcelona':'Barcelona','Madrid':'Madrid','Paris':'Párizs','Marseille':'Marseille','Lyon':'Lyon','Nice':'Nizza','Sevilla':'Sevilla','Milan':'Milánó','Milano':'Milánó','Amsterdam':'Amszterdam','Lisbon':'Lisszabon','Lisboa':'Lisszabon','Porto':'Porto','Berlin':'Berlin','Valencia':'Valencia','Elche':'Elche','Dortmund':'Dortmund','Leipzig':'Leipzig','Vienna':'Bécs','Wien':'Bécs','Brussels':'Brüsszel','Bruxelles':'Brüsszel','Copenhagen':'Koppenhága','København':'Koppenhága'}
 
 def rss(query):
@@ -65,7 +77,7 @@ def main():
             title=clean(item.findtext('title'))
             summary=clean(item.findtext('description'))
             url=(item.findtext('link') or '').strip()
-            if not url.startswith('https://') or EXCLUDE.search(title) or not VACANCY.search(title+' '+summary):continue
+            if not url.startswith('https://') or EXCLUDE.search(title) or not likely_vacancy(title,summary,club):continue
             # Google News article links are NOT guaranteed employer application links.
             key=hashlib.sha256((title.casefold()+'|'+url).encode()).hexdigest()[:20]
             source_el=item.find('source')
